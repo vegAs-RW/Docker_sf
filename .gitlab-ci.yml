@@ -6,7 +6,7 @@ default:
     - apt-get update && apt-get install -y unzip git curl libzip-dev
     #- docker-php-ext-install zip
 
-job:
+symfony-tests:
   image: composer
   script:
     - cp .env.test .env.test.local
