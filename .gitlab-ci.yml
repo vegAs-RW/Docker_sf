@@ -1,28 +1,5 @@
-stages:
-  - setup
-  - test
-
 variables:
   PHP_VERSION: "8.2"
-
-setup:
-  stage: setup
-  script:
-    - apt-get update && apt-get install -y unzip git curl libzip-dev
-    - docker-php-ext-install zip
-    - cp .env.test.local .env
-    - composer install
-
-test:
-  stage: test
-  script:
-    - vendor/bin/phpunit --configuration phpunit.xml
-  artifacts:
-    when: always
-    paths:
-      - coverage/
-    reports:
-      junit: junit.xml
 
 default:
   before_script:
