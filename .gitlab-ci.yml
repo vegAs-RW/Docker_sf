@@ -1,32 +1,39 @@
-workflow:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_COMMIT_BRANCH == 'develop'
-    #- if: $CI_COMMIT_BRANCH == $CI_MAIN_BRANCH
+stages:
+  - setup
+  - test
 
+variables:
+  PHP_VERSION: "8.2"
+
+setup:
+  stage: setup
   script:
-    # Select image from https://hub.docker.com/_/php/
-    image: php:latest
+    - apt-get update && apt-get install -y unzip git curl libzip-dev
+    - docker-php-ext-install zip
+    - cp .env.test.local .env
+    - composer install
 
-    # Select what we should cache between builds
-    cache:
-      paths:
-        - vendor/
+test:
+  stage: test
+  script:
+    - vendor/bin/phpunit --configuration phpunit.xml
+  artifacts:
+    when: always
+    paths:
+      - coverage/
+    reports:
+      junit: junit.xml
 
-    before_script:
-      - apt-get update -yqq
-      - apt-get install -yqq git libpq-dev libcurl4-gnutls-dev libicu-dev libvpx-dev libjpeg-dev libpng-dev libxpm-dev zlib1g-dev libfreetype6-dev libxml2-dev libexpat1-dev libbz2-dev libgmp3-dev libldap2-dev unixodbc-dev libsqlite3-dev libaspell-dev libsnmp-dev libpcre3-dev libtidy-dev libonig-dev libzip-dev
-      # Install PHP extensions
-      - docker-php-ext-install mbstring pdo_pgsql curl intl gd xml zip bz2 opcache
-      # Install & enable Xdebug for code coverage reports
-      - pecl install xdebug
-      - docker-php-ext-enable xdebug
-      # Install and run Composer
-      - curl -sS https://getcomposer.org/installer | php
-      - php composer.phar install
+default:
+  before_script:
+    - apt-get update && apt-get install -y unzip git curl libzip-dev
+    - docker-php-ext-install zip
 
-    # Run our tests
-    # If Xdebug was installed you can generate a coverage report and see code coverage metrics.
-    test:
-      script:
-        - vendor/bin/phpunit --configuration phpunit.xml --coverage-text --colors=never
+job:
+  script:
+    - cp .env.test .env.test.local
+    - composer install
+    - vendor/bin/phpunit --configuration phpunit.xml
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
