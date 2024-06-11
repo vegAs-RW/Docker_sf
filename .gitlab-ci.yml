@@ -7,6 +7,7 @@ default:
     #- docker-php-ext-install zip
 
 job:
+  image: composer
   script:
     - cp .env.test .env.test.local
     - composer install
