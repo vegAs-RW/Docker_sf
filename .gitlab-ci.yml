@@ -12,6 +12,7 @@ symfony-tests:
     - cp .env.test .env.test.local
     - composer install
     - vendor/bin/phpunit --configuration phpunit.xml.dist
+    - vendor/bin/php-cs-fixer fix --dry-run --diff
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "develop"'
