@@ -7,14 +7,22 @@ name: Symfony
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
 
 permissions:
   contents: read
 
 jobs:
+  prevent-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prevent Push to Main Branch
+        run: |
+          echo "Push to main branch is not allowed."
+          exit 1
+
   symfony-tests:
     runs-on: ubuntu-latest
 
