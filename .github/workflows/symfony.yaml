@@ -45,3 +45,6 @@ jobs:
 
       - name: Execute tests (Unit and Feature tests) via PHPUnit
         run: vendor/bin/phpunit
+
+      - name: Execute CS Sniffer via PHPCS
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
