@@ -7,7 +7,7 @@ pipeline {
     }
     environment {
         COMPOSER_CACHE_DIR = '/var/jenkins_home/composer_cache'
-        DB_HOST = '127.0.0.1'
+        DB_HOST = 'mariadb'
         DB_PORT = '3306'
         DB_NAME = 'sf_testing'
         DB_USER = 'root'
@@ -18,10 +18,13 @@ pipeline {
     stages {
         stage('Install Dependencies') {
             steps {
-                sh 'apt-get update && apt-get install -y git unzip'
-                sh 'docker-php-ext-install pdo pdo_mysql'
-                sh 'curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer'
-                sh 'composer install --prefer-dist --no-interaction'
+                sh '''
+                apt-get update && \
+                apt-get install -y git unzip mysql-client && \
+                docker-php-ext-install pdo pdo_mysql && \
+                curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && \
+                composer install --prefer-dist --no-interaction
+                '''
             }
         }
         stage('Create .env.test.local') {
@@ -35,6 +38,8 @@ pipeline {
         stage('Setup Database') {
             steps {
                 script {
+                    // Attendre que MariaDB soit prêt
+                    sh 'dockerize -wait tcp://mariadb:3306 -timeout 1m'
                     // Exécuter les commandes SQL nécessaires pour configurer la base de données
                     sh 'mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASSWORD -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"'
                 }
