@@ -37,5 +37,4 @@ class RabbitRepositoryTest extends KernelTestCase
 
         $this->assertGreaterThan(0, sizeof($rabbits));
     }
-
 }
