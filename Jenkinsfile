@@ -1,70 +1,94 @@
 pipeline {
-    agent {
-        docker {
-            image 'php:8.2'
-            args '-u root --network jenkins-net'
-        }
-    }
+    agent any
+
     environment {
-        DB_HOST = 'mariadb'
-        DB_PORT = '3306'
+        DB_CONTAINER_NAME = 'mariadb-1'
+        DB_ROOT_PASSWORD = 'root'
         DB_NAME = 'sf_testing'
-        DB_USER = credentials('DB_USER')
-        DB_PASSWORD = credentials('DB_PASSWORD')
-        DB_SERVER_VERSION = '10.5'
-        DB_CHARSET = 'utf8mb4'
     }
+
     stages {
-        stage('Install Dependencies') {
-            steps {
-                sh '''
-                apt-get update && \
-                apt-get install -y git unzip default-mysql-client wget && \
-                docker-php-ext-install pdo pdo_mysql && \
-                curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && \
-                wget https://github.com/jwilder/dockerize/releases/download/v0.6.1/dockerize-linux-amd64-v0.6.1.tar.gz && \
-                tar -C /usr/local/bin -xzvf dockerize-linux-amd64-v0.6.1.tar.gz && \
-                composer install --prefer-dist --no-interaction
-                '''
-            }
-        }
-        stage('Create .env.test.local') {
+        stage('Attendre la Base de Données') {
             steps {
                 script {
-                    def dbUrl = "mysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?serverVersion=${DB_SERVER_VERSION}&charset=${DB_CHARSET}"
-                    writeFile file: '.env.test.local', text: "DATABASE_URL=\"${dbUrl}\"\n"
+                    echo "------------------- Étape: Attendre la Base de Données"
+                    def isRunning = sh(script: "docker ps --filter name=${DB_CONTAINER_NAME} --filter status=running --format '{{.Names}}'", returnStdout: true).trim()
+
+                    if (isRunning != '') {
+                        echo "------------------- Succès: Le conteneur MariaDB est en cours d'exécution."
+                    } else {
+                        error "------------------- Erreur: Le conteneur MariaDB n'est pas en cours d'exécution."
+                    }
                 }
             }
         }
-        stage('Setup Database') {
+
+        stage('Obtenir l\'Adresse IP de la Base de Données') {
             steps {
                 script {
-                    sh 'dockerize -wait tcp://mariadb:3306 -timeout 1m'
-                    sh 'mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASSWORD -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"'
+                    echo "------------------- Étape: Obtenir l'Adresse IP de la Base de Données"
+                    def dbIpAddress = sh(script: "docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${DB_CONTAINER_NAME}", returnStdout: true).trim()
+                    env.DB_IP_ADDRESS = dbIpAddress
+                    echo "Adresse IP du conteneur MariaDB : ${env.DB_IP_ADDRESS}"
+                    echo "------------------- Succès: Adresse IP obtenue."
                 }
             }
         }
-        stage('Run Linter') {
+
+        stage('Tester la Connexion à la Base de Données') {
             steps {
-                sh './vendor/bin/php-cs-fixer fix --dry-run --diff'
+                script {
+                    echo "------------------- Étape: Tester la Connexion à la Base de Données"
+                    sh """
+                        mysql -h ${env.DB_IP_ADDRESS} -P 3306 --protocol=tcp -uroot -p${DB_ROOT_PASSWORD} -e "SHOW DATABASES;"
+                    """
+                    echo "------------------- Succès: Connexion à la base de données testée."
+                }
             }
         }
-        stage('Run Tests') {
+
+        stage('Ajouter une Donnée') {
             steps {
-                sh 'APP_ENV=test ./vendor/bin/phpunit'
+                script {
+                    echo "------------------- Étape: Ajouter une Donnée"
+                    sh """
+                        mysql -h ${env.DB_IP_ADDRESS} -P 3306 --protocol=tcp -uroot -p${DB_ROOT_PASSWORD} -e "CREATE TABLE IF NOT EXISTS ${DB_NAME}.test_table (id INT PRIMARY KEY AUTO_INCREMENT, data VARCHAR(100));"
+                        mysql -h ${env.DB_IP_ADDRESS} -P 3306 --protocol=tcp -uroot -p${DB_ROOT_PASSWORD} -e "INSERT INTO ${DB_NAME}.test_table (data) VALUES ('exemple de donnée');"
+                    """
+                    echo "------------------- Succès: Donnée ajoutée à la table test_table."
+                }
+            }
+        }
+
+        stage('Logger la Donnée') {
+            steps {
+                script {
+                    echo "------------------- Étape: Logger la Donnée"
+                    def result = sh(script: "mysql -h ${env.DB_IP_ADDRESS} -P 3306 --protocol=tcp -uroot -p${DB_ROOT_PASSWORD} -e \"SELECT * FROM ${DB_NAME}.test_table;\"", returnStdout: true).trim()
+                    echo "Contenu de la table test_table :\n${result}"
+                    echo "------------------- Succès: Donnée loguée."
+                }
+            }
+        }
+
+        stage('Supprimer la Donnée') {
+            steps {
+                script {
+                    echo "------------------- Étape: Supprimer la Donnée"
+                    sh """
+                        mysql -h ${env.DB_IP_ADDRESS} -P 3306 --protocol=tcp -uroot -p${DB_ROOT_PASSWORD} -e "DELETE FROM ${DB_NAME}.test_table WHERE data='exemple de donnée';"
+                    """
+                    echo "------------------- Succès: Donnée supprimée de la table test_table."
+                }
             }
         }
     }
+
     post {
         always {
-            junit 'tests/logs/junit.xml'
-            archiveArtifacts artifacts: '**/build/logs/*.xml', allowEmptyArchive: true
-        }
-        success {
-            echo 'Pipeline succeeded!'
-        }
-        failure {
-            echo 'Pipeline failed!'
+            script {
+                echo "------------------- Pipeline terminé."
+            }
         }
     }
 }
