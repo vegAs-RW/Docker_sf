@@ -20,9 +20,11 @@ pipeline {
             steps {
                 sh '''
                 apt-get update && \
-                apt-get install -y git unzip default-mysql-client && \
+                apt-get install -y git unzip default-mysql-client wget && \
                 docker-php-ext-install pdo pdo_mysql && \
                 curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && \
+                wget https://github.com/jwilder/dockerize/releases/download/v0.6.1/dockerize-linux-amd64-v0.6.1.tar.gz && \
+                tar -C /usr/local/bin -xzvf dockerize-linux-amd64-v0.6.1.tar.gz && \
                 composer install --prefer-dist --no-interaction
                 '''
             }
