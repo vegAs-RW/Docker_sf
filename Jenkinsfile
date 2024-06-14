@@ -7,7 +7,7 @@ pipeline {
     }
     environment {
         COMPOSER_CACHE_DIR = '/var/jenkins_home/composer_cache'
-        DB_HOST = 'localhost'
+        DB_HOST = 'mariadb'
         DB_PORT = '3306'
         DB_NAME = 'sf_testing'
         DB_USER = 'root'
