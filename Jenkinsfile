@@ -41,7 +41,7 @@ pipeline {
             steps {
                 script {
                     // Attendre que MariaDB soit prêt
-                    sh 'dockerize -wait tcp://mariadb-1:3306 -timeout 1m'
+                    //sh 'dockerize -wait tcp://mariadb-1:3306 -timeout 1m'
                     // Exécuter les commandes SQL nécessaires pour configurer la base de données
                     sh 'mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASSWORD -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"'
                 }
