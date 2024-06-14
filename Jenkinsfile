@@ -1,7 +1,13 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'php:8.2'
+            args '-u root'
+        }
+    }
 
     environment {
+        COMPOSER_CACHE_DIR = '/var/jenkins_home/composer_cache'
         DB_CONTAINER_NAME = 'mariadb-1'
         DB_ROOT_PASSWORD = 'root'
         DB_NAME = 'sf_testing'
@@ -44,43 +50,43 @@ pipeline {
                         mysql -h ${env.DB_IP_ADDRESS} -P 3306 --protocol=tcp -uroot -p${DB_ROOT_PASSWORD} -e "SHOW DATABASES;"
                     """
                     echo "------------------- Succès: Connexion à la base de données testée."
+                    sh 'mysql --version'
                 }
             }
         }
 
-        stage('Ajouter une Donnée') {
+        stage('Install Dependencies') {
+            steps {
+                sh '''
+                apt-get update && \
+                apt-get install -y git unzip default-mysql-client wget && \
+                docker-php-ext-install pdo pdo_mysql && \
+                curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && \
+                wget https://github.com/jwilder/dockerize/releases/download/v0.6.1/dockerize-linux-amd64-v0.6.1.tar.gz && \
+                tar -C /usr/local/bin -xzvf dockerize-linux-amd64-v0.6.1.tar.gz && \
+                composer install --prefer-dist --no-interaction
+                '''
+            }
+        }
+
+        stage('Create .env.test.local') {
             steps {
                 script {
-                    echo "------------------- Étape: Ajouter une Donnée"
-                    sh """
-                        mysql -h ${env.DB_IP_ADDRESS} -P 3306 --protocol=tcp -uroot -p${DB_ROOT_PASSWORD} -e "CREATE TABLE IF NOT EXISTS ${DB_NAME}.test_table (id INT PRIMARY KEY AUTO_INCREMENT, data VARCHAR(100));"
-                        mysql -h ${env.DB_IP_ADDRESS} -P 3306 --protocol=tcp -uroot -p${DB_ROOT_PASSWORD} -e "INSERT INTO ${DB_NAME}.test_table (data) VALUES ('exemple de donnée');"
-                    """
-                    echo "------------------- Succès: Donnée ajoutée à la table test_table."
+                    def dbUrl = "mysql://root:${DB_ROOT_PASSWORD}@${env.DB_IP_ADDRESS}:3306/${DB_NAME}?serverVersion=11.3.2-MariaDB&charset=utf8mb4"
+                    writeFile file: '.env.test.local', text: "DATABASE_URL=\"${dbUrl}\"\n"
                 }
             }
         }
 
-        stage('Logger la Donnée') {
+        stage('Run Linter') {
             steps {
-                script {
-                    echo "------------------- Étape: Logger la Donnée"
-                    def result = sh(script: "mysql -h ${env.DB_IP_ADDRESS} -P 3306 --protocol=tcp -uroot -p${DB_ROOT_PASSWORD} -e \"SELECT * FROM ${DB_NAME}.test_table;\"", returnStdout: true).trim()
-                    echo "Contenu de la table test_table :\n${result}"
-                    echo "------------------- Succès: Donnée loguée."
-                }
+                sh './vendor/bin/php-cs-fixer fix --dry-run --diff'
             }
         }
 
-        stage('Supprimer la Donnée') {
+        stage('Run Tests') {
             steps {
-                script {
-                    echo "------------------- Étape: Supprimer la Donnée"
-                    sh """
-                        mysql -h ${env.DB_IP_ADDRESS} -P 3306 --protocol=tcp -uroot -p${DB_ROOT_PASSWORD} -e "DELETE FROM ${DB_NAME}.test_table WHERE data='exemple de donnée';"
-                    """
-                    echo "------------------- Succès: Donnée supprimée de la table test_table."
-                }
+                sh 'APP_ENV=test ./vendor/bin/phpunit'
             }
         }
     }
