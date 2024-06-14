@@ -2,17 +2,16 @@ pipeline {
     agent {
         docker {
             image 'php:8.2'
-            args '-u root'
+            args '-u root --network jenkins-net'
         }
     }
     environment {
-        COMPOSER_CACHE_DIR = '/var/jenkins_home/composer_cache'
         DB_HOST = 'mariadb'
         DB_PORT = '3306'
-        //DB_NAME = 'sf_testing'
-        DB_USER = 'root'
-        DB_PASSWORD = 'root'
-        DB_SERVER_VERSION = '10.5'  // Version MariaDB compatible
+        DB_NAME = 'sf_testing'
+        DB_USER = credentials('DB_USER')
+        DB_PASSWORD = credentials('DB_PASSWORD')
+        DB_SERVER_VERSION = '10.5'
         DB_CHARSET = 'utf8mb4'
     }
     stages {
@@ -40,9 +39,7 @@ pipeline {
         stage('Setup Database') {
             steps {
                 script {
-                    // Attendre que MariaDB soit prêt
-                    //sh 'dockerize -wait tcp://mariadb-1:3306 -timeout 1m'
-                    // Exécuter les commandes SQL nécessaires pour configurer la base de données
+                    sh 'dockerize -wait tcp://mariadb:3306 -timeout 1m'
                     sh 'mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASSWORD -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"'
                 }
             }
