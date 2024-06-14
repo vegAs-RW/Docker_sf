@@ -12,7 +12,7 @@ pipeline {
         DB_NAME = 'sf_testing'
         DB_USER = 'root'
         DB_PASSWORD = 'root'
-        DB_SERVER_VERSION = '11.3.2-MariaDB'
+        DB_SERVER_VERSION = '10.5'  // Version MariaDB compatible
         DB_CHARSET = 'utf8mb4'
     }
     stages {
@@ -20,7 +20,7 @@ pipeline {
             steps {
                 sh '''
                 apt-get update && \
-                apt-get install -y git unzip mysql-client && \
+                apt-get install -y git unzip default-mysql-client && \
                 docker-php-ext-install pdo pdo_mysql && \
                 curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && \
                 composer install --prefer-dist --no-interaction
