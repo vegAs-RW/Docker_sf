@@ -8,4 +8,9 @@ class Greetings
     {
         return "Hello, $name!";
     }
+
+    public function bye(string $name): string
+    {
+        return "Goodbye, $name!";
+    }
 }

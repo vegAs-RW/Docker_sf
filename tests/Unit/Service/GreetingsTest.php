@@ -15,4 +15,13 @@ class GreetingsTest extends TestCase
 
         $this->assertEquals('Hello, Bob!', $greetings->greet('Bob'));
     }
+
+    public function testBye()
+    {
+        $greetings = new Greetings();
+
+        $this->assertInstanceOf(Greetings::class, $greetings);
+
+        $this->assertEquals('Goodbye, Bob!', $greetings->bye('Bob'));
+    }
 }
